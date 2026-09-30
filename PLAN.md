@@ -63,15 +63,15 @@ Sessions are **generated automatically** from a group's start date, weekdays and
 
 | By | Goal |
 |----|------|
-| Oct 5 | Models, admin panel, automatic session generation |
+| ✅ Sep 30 | Models, admin panel, automatic session generation |
 | Oct 10 | Student form (Lithuanian, mobile-friendly), one answer per device |
 | Oct 14 | CSV/Excel export, basic per-session results |
 | Oct 17 | Deployed on a server, tested end to end with a fake group |
 | **Oct 19** | **Pilot starts with AI Engineering** |
 | Nov | Dashboard charts, module comparison, alerts |
 
-## Open questions
+## Decisions
 
-- Which weekdays do AI Engineering lessons run on? (needed for session generation)
-- Scales: 1–5 as drafted, or 1–4 (no neutral middle)?
-- Module breakdown of the 65 AI Engineering sessions (which session numbers belong to which module)
+- AI Engineering runs **Mon, Wed, Thu 18:00–21:30**. Lithuanian public holidays are skipped automatically, which puts the pilot's last lesson on **2027-03-24**.
+- Questions 2–4 use a **1–5** scale.
+- Modules: see `feedback/management/commands/seed_ai_engineering.py` (M1 S1–17 … M7 S58–65).
