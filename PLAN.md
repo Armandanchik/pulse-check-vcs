@@ -64,11 +64,13 @@ Sessions are **generated automatically** from a group's start date, weekdays and
 | By | Goal |
 |----|------|
 | ✅ Sep 30 | Models, admin panel, automatic session generation |
-| Oct 10 | Student form (Lithuanian, mobile-friendly), one answer per device |
-| Oct 14 | CSV/Excel export, basic per-session results |
+| ✅ Sep 30 | Student form (Lithuanian, mobile-friendly), one answer per device |
+| ✅ Sep 30 | CSV/Excel export, per-session results |
+| ✅ Sep 30 | Docker setup ready ([DEPLOY.md](DEPLOY.md)) |
+| ✅ Sep 30 | Dashboard charts, module comparison, alerts (shown on dashboard) |
 | Oct 17 | Deployed on a server, tested end to end with a fake group |
 | **Oct 19** | **Pilot starts with AI Engineering** |
-| Nov | Dashboard charts, module comparison, alerts |
+| Later | Alert emails, lecturer view, break periods in the schedule |
 
 ## Decisions
 

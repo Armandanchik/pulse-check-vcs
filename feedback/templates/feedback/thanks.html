@@ -1,0 +1,12 @@
+{% extends "feedback/base_student.html" %}
+
+{% block title %}Ačiū{% endblock %}
+
+{% block content %}
+<div class="card center">
+  <p class="big">🙌</p>
+  <h1>Ačiū už atsiliepimą!</h1>
+  <p class="muted">Jūsų atsakymas apie {{ session.number }} sesiją ({{ session.date|date:"E j" }} d.) užfiksuotas.<br>
+  Iki kitos paskaitos!</p>
+</div>
+{% endblock %}

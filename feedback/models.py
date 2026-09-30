@@ -2,8 +2,10 @@ import datetime
 import secrets
 
 import holidays
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
+from django.urls import reverse
 from django.utils import timezone
 
 
@@ -28,7 +30,9 @@ class Program(models.Model):
 
 
 class Module(models.Model):
-    program = models.ForeignKey(Program, on_delete=models.CASCADE, related_name="modules")
+    program = models.ForeignKey(
+        Program, on_delete=models.CASCADE, related_name="modules", verbose_name="programa"
+    )
     number = models.PositiveIntegerField("nr.")
     title = models.CharField("tema", max_length=200)
     first_session = models.PositiveIntegerField("pirma sesija")
@@ -61,7 +65,9 @@ WEEKDAY_NAMES = ["Pr", "An", "Tr", "Kt", "Pn", "Št", "Sk"]
 class Group(models.Model):
     """One run of a program, e.g. "AI Engineering 2026-10". One group = one course."""
 
-    program = models.ForeignKey(Program, on_delete=models.PROTECT, related_name="groups")
+    program = models.ForeignKey(
+        Program, on_delete=models.PROTECT, related_name="groups", verbose_name="programa"
+    )
     name = models.CharField("pavadinimas", max_length=200, unique=True)
     start_date = models.DateField("pradžios data")
     end_date = models.DateField("pabaigos data", null=True, blank=True, editable=False)
@@ -132,15 +138,43 @@ class Group(models.Model):
         self.save(update_fields=["end_date"])
         return len(dates)
 
+    def student_url(self):
+        return f"{settings.PUBLIC_BASE_URL}{reverse('feedback:form', args=[self.link_token])}"
+
+    def current_session(self, now=None):
+        """The latest session whose form is open right now, or None."""
+        now = now or timezone.now()
+        today = timezone.localdate(now)
+        earliest = today - datetime.timedelta(days=self.response_window_hours // 24 + 1)
+        candidates = self.sessions.filter(date__range=(earliest, today)).order_by("-date")
+        for session in candidates:
+            if session.opens_at() <= now <= session.closes_at():
+                return session
+        return None
+
+    def next_session(self, now=None):
+        now = now or timezone.now()
+        for session in self.sessions.filter(date__gte=timezone.localdate(now)).order_by("date"):
+            if session.opens_at() > now:
+                return session
+        return None
+
 
 class Session(models.Model):
     """One lesson of a group."""
 
-    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="sessions")
+    group = models.ForeignKey(
+        Group, on_delete=models.CASCADE, related_name="sessions", verbose_name="grupė"
+    )
     number = models.PositiveIntegerField("nr.")
     date = models.DateField("data")
     module = models.ForeignKey(
-        Module, on_delete=models.SET_NULL, null=True, blank=True, related_name="sessions"
+        Module,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sessions",
+        verbose_name="modulis",
     )
     topic = models.CharField("tema", max_length=200, blank=True)
 
@@ -229,10 +263,14 @@ class Response(models.Model):
     blocks double answers but cannot link one student's answers across sessions.
     """
 
-    session = models.ForeignKey(Session, on_delete=models.PROTECT, related_name="responses")
-    question_set = models.ForeignKey(QuestionSet, on_delete=models.PROTECT, related_name="responses")
+    session = models.ForeignKey(
+        Session, on_delete=models.PROTECT, related_name="responses", verbose_name="sesija"
+    )
+    question_set = models.ForeignKey(
+        QuestionSet, on_delete=models.PROTECT, related_name="responses", verbose_name="klausimynas"
+    )
     respondent_hash = models.CharField(max_length=64)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField("pateikta", auto_now_add=True)
 
     class Meta:
         verbose_name = "atsakymas"
@@ -250,7 +288,9 @@ class Response(models.Model):
 
 class Answer(models.Model):
     response = models.ForeignKey(Response, on_delete=models.CASCADE, related_name="answers")
-    question = models.ForeignKey(Question, on_delete=models.PROTECT, related_name="answers")
+    question = models.ForeignKey(
+        Question, on_delete=models.PROTECT, related_name="answers", verbose_name="klausimas"
+    )
     value = models.PositiveSmallIntegerField("reikšmė", null=True, blank=True)
     text = models.TextField("tekstas", blank=True)
 

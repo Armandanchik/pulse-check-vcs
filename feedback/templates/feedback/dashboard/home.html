@@ -1,0 +1,40 @@
+{% extends "feedback/dashboard/base.html" %}
+{% load pulse %}
+
+{% block content %}
+<div class="head">
+  <div>
+    <h1>Rezultatai</h1>
+    <p class="sub">Visos grupės ir jų bendri įvertinimai (1–5).</p>
+  </div>
+  <div class="buttons">
+    <a class="button" href="{% url 'feedback:export' 'xlsx' %}">Eksportuoti viską (Excel)</a>
+    <a class="button" href="{% url 'feedback:export' 'csv' %}">CSV</a>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Grupė</th><th>Programa</th><th>Laikotarpis</th>
+        <th class="num">Atsakymai</th><th class="num">Bendras</th><th class="num">Įspėjimai</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>
+          <td><a href="{% url 'feedback:group' row.group.pk %}">{{ row.group.name }}</a></td>
+          <td><a href="{% url 'feedback:program' row.group.program_id %}">{{ row.group.program.name }}</a></td>
+          <td>{{ row.group.start_date|date:"Y-m-d" }} – {{ row.group.end_date|date:"Y-m-d"|default:"?" }}</td>
+          <td class="num">{{ row.summary.responses }}</td>
+          <td class="num"><span class="pill {{ row.summary.overall|score_class }}">{{ row.summary.overall|score }}</span></td>
+          <td class="num">{% if row.alerts %}<span class="pill bad">{{ row.alerts }}</span>{% else %}<span class="muted">0</span>{% endif %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="muted">Grupių dar nėra. Sukurkite jas <a href="{% url 'admin:feedback_group_add' %}">administravime</a>.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

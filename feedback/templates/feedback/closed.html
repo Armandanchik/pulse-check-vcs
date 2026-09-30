@@ -1,0 +1,14 @@
+{% extends "feedback/base_student.html" %}
+
+{% block title %}Forma uždaryta{% endblock %}
+
+{% block content %}
+<div class="card center">
+  <p class="big">⏳</p>
+  <h1>Šiuo metu forma uždaryta</h1>
+  <p class="muted">
+    Atsiliepimą galite palikti nuo paskaitos pradžios iki {{ group.response_window_hours }} val. po jos pabaigos.
+    {% if next_session %}<br>Kita paskaita: <strong>{{ next_session.date|date:"l, E j"|lower }} d., {{ group.lesson_start|time:"H:i" }}</strong>.{% endif %}
+  </p>
+</div>
+{% endblock %}

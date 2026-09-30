@@ -1,6 +1,10 @@
+import segno
 from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
 from django.db.models import Count
+from django.urls import reverse
+from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 
 from .models import (
     WEEKDAY_NAMES,
@@ -16,6 +20,7 @@ from .models import (
 
 admin.site.site_header = "Pulse Check VCS"
 admin.site.site_title = "Pulse Check VCS"
+admin.site.site_url = "/dashboard/"
 
 
 class ModuleInline(admin.TabularInline):
@@ -34,14 +39,14 @@ class SessionInline(admin.TabularInline):
     extra = 0
     fields = ["number", "date", "module", "topic"]
     readonly_fields = ["number"]
-    show_change_link = True
+    classes = ["collapse"]
 
 
 @admin.register(Group)
 class GroupAdmin(admin.ModelAdmin):
-    list_display = ["name", "program", "start_date", "end_date", "schedule", "session_total"]
+    list_display = ["name", "program", "start_date", "end_date", "schedule", "session_total", "results"]
     list_filter = ["program"]
-    readonly_fields = ["end_date", "link_token"]
+    readonly_fields = ["end_date", "student_link", "student_qr"]
     inlines = [SessionInline]
     actions = ["generate_sessions"]
 
@@ -56,6 +61,24 @@ class GroupAdmin(admin.ModelAdmin):
     @admin.display(description="sesijos", ordering="session_total")
     def session_total(self, group):
         return group.session_total
+
+    @admin.display(description="rezultatai")
+    def results(self, group):
+        return format_html('<a href="{}">Atidaryti</a>', reverse("feedback:group", args=[group.pk]))
+
+    @admin.display(description="nuoroda studentams")
+    def student_link(self, group):
+        if not group.pk:
+            return "Atsiras išsaugojus grupę."
+        url = group.student_url()
+        return format_html('<a href="{0}" target="_blank">{0}</a>', url)
+
+    @admin.display(description="QR kodas")
+    def student_qr(self, group):
+        if not group.pk:
+            return "-"
+        svg = segno.make(group.student_url(), error="m").svg_inline(scale=5, border=3, light="#fff")
+        return mark_safe(svg)
 
     @admin.action(description="Sugeneruoti sesijas pagal tvarkaraštį")
     def generate_sessions(self, request, queryset):

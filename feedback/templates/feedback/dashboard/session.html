@@ -1,0 +1,39 @@
+{% extends "feedback/dashboard/base.html" %}
+{% load pulse %}
+
+{% block title %}S{{ session.number }} · {{ group.name }}{% endblock %}
+
+{% block content %}
+<p class="sub"><a href="{% url 'feedback:group' group.pk %}">← {{ group.name }}</a></p>
+<h1>Sesija {{ session.number }} · {{ session.date|date:"Y-m-d, l" }}</h1>
+<p class="sub">
+  {% if session.module %}Modulis {{ session.module }}{% endif %}
+  {% if session.topic %} · {{ session.topic }}{% endif %}
+</p>
+
+{% if summary.visible %}
+  <div class="kpis">
+    <div class="card kpi"><div class="label">Atsakymai</div><div class="value">{{ summary.responses }}</div></div>
+    {% for label, value in summary.scale_rows %}
+      <div class="card kpi"><div class="label">{{ label }}</div><div class="value"><span class="pill {{ value|score_class }}">{{ value|score }}</span></div></div>
+    {% endfor %}
+    {% for label, share in summary.pace_rows %}
+      <div class="card kpi"><div class="label">Tempas: {{ label|lower }}</div><div class="value">{{ share|percent }}</div></div>
+    {% endfor %}
+  </div>
+
+  <h2>Komentarai</h2>
+  <div class="card">
+    {% for comment in comments %}
+      <div class="comment"><div class="meta">{{ comment.response.created_at|date:"Y-m-d H:i" }}</div><p>{{ comment.text }}</p></div>
+    {% empty %}
+      <p class="muted">Komentarų nėra.</p>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card">
+    <p>Atsakymų: <strong>{{ summary.responses }}</strong>.
+    Rezultatai ir komentarai rodomi, kai sesija turi bent {{ min_responses }} atsakymus – taip saugomas studentų anonimiškumas.</p>
+  </div>
+{% endif %}
+{% endblock %}

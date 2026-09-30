@@ -1,0 +1,63 @@
+{% extends "feedback/dashboard/base.html" %}
+{% load pulse %}
+
+{% block title %}{{ program.name }}{% endblock %}
+
+{% block content %}
+<div class="head">
+  <div>
+    <h1>{{ program.name }}</h1>
+    <p class="sub">Tų pačių modulių palyginimas tarp grupių. Bendras = lektoriaus, teorijos ir praktikos vidurkis.</p>
+  </div>
+  <div class="buttons">
+    <a class="button" href="{% url 'feedback:export' 'xlsx' %}?program={{ program.pk }}">Excel</a>
+    <a class="button" href="{% url 'feedback:export' 'csv' %}?program={{ program.pk }}">CSV</a>
+  </div>
+</div>
+
+<div class="card"><strong>Bendras įvertinimas pagal modulį</strong><div class="chart-box"><canvas id="compare"></canvas></div></div>
+
+<h2>Moduliai</h2>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Modulis</th>
+        <th class="num">Visos grupės</th>
+        {% for group in groups %}<th class="num"><a href="{% url 'feedback:group' group.pk %}">{{ group.name }}</a></th>{% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>
+          <td>{{ row.module }}</td>
+          <td class="num">
+            {% if row.combined.visible %}<span class="pill {{ row.combined.overall|score_class }}">{{ row.combined.overall|score }}</span>
+            <span class="muted">({{ row.combined.responses }})</span>{% else %}<span class="muted">–</span>{% endif %}
+          </td>
+          {% for summary in row.groups %}
+            <td class="num">
+              {% if summary.visible %}<span class="pill {{ summary.overall|score_class }}">{{ summary.overall|score }}</span>{% else %}<span class="muted">–</span>{% endif %}
+            </td>
+          {% endfor %}
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{{ chart|json_script:"compare-data" }}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  if (window.Chart) {
+    const chart = JSON.parse(document.getElementById("compare-data").textContent);
+    new Chart(document.getElementById("compare"), {
+      type: "bar",
+      data: { labels: chart.labels, datasets: toDatasets(chart.series, { borderRadius: 4 }) },
+      options: { maintainAspectRatio: false, scales: { y: SCALE } },
+    });
+  }
+</script>
+{% endblock %}

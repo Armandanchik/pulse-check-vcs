@@ -1,0 +1,161 @@
+{% extends "feedback/dashboard/base.html" %}
+{% load pulse %}
+
+{% block title %}{{ group.name }}{% endblock %}
+
+{% block content %}
+<div class="head">
+  <div>
+    <h1>{{ group.name }}</h1>
+    <p class="sub">
+      <a href="{% url 'feedback:program' group.program_id %}">{{ group.program.name }}</a> ·
+      {{ group.start_date|date:"Y-m-d" }} – {{ group.end_date|date:"Y-m-d"|default:"?" }} ·
+      rezultatai rodomi, kai sesija turi bent {{ min_responses }} atsakymus
+    </p>
+  </div>
+  <div class="buttons">
+    <a class="button" href="{% url 'feedback:export' 'xlsx' %}?group={{ group.pk }}">Excel</a>
+    <a class="button" href="{% url 'feedback:export' 'csv' %}?group={{ group.pk }}">CSV</a>
+    <a class="button" href="{% url 'admin:feedback_group_change' group.pk %}">Nuoroda ir QR</a>
+  </div>
+</div>
+
+<div class="kpis">
+  <div class="card kpi"><div class="label">Atsakymai</div><div class="value">{{ overall.responses }}</div></div>
+  {% for label, value in overall.scale_rows %}
+    <div class="card kpi"><div class="label">{{ label }}</div><div class="value">{{ value|score }}</div></div>
+  {% endfor %}
+  {% for label, share in overall.pace_rows %}
+    <div class="card kpi"><div class="label">Tempas: {{ label|lower }}</div><div class="value">{{ share|percent }}</div></div>
+  {% endfor %}
+</div>
+
+{% if alerts %}
+  <h2>Įspėjimai pasibaigusiems moduliams</h2>
+  {% for alert in alerts %}
+    <div class="alert">
+      <strong>Modulis {{ alert.module }}</strong>
+      <ul>{% for message in alert.messages %}<li>{{ message }}</li>{% endfor %}</ul>
+    </div>
+  {% endfor %}
+{% endif %}
+
+<h2>Tendencijos</h2>
+<div class="charts">
+  <div class="card"><strong>Įvertinimai pagal sesiją</strong><div class="chart-box"><canvas id="trend"></canvas></div></div>
+  <div class="card"><strong>Moduliai: vidurkiai</strong><div class="chart-box"><canvas id="modules"></canvas></div></div>
+  <div class="card"><strong>Moduliai: tempas</strong><div class="chart-box"><canvas id="pace"></canvas></div></div>
+</div>
+
+<h2>Moduliai</h2>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Modulis</th><th>Sesijos</th><th class="num">Atsakymai</th>
+        <th class="num">Lektorius</th><th class="num">Teorija</th><th class="num">Praktika</th>
+        <th class="num">Per lėtas</th><th class="num">Tinkamas</th><th class="num">Per greitas</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in module_rows %}
+        <tr>
+          <td>{{ row.module }}</td>
+          <td>S{{ row.module.first_session }}–S{{ row.module.last_session }}</td>
+          <td class="num">{{ row.summary.responses }}</td>
+          {% if row.summary.visible %}
+            {% for label, value in row.summary.scale_rows %}<td class="num"><span class="pill {{ value|score_class }}">{{ value|score }}</span></td>{% endfor %}
+            {% for label, share in row.summary.pace_rows %}<td class="num">{{ share|percent }}</td>{% endfor %}
+          {% elif row.summary.responses %}
+            <td colspan="6" class="muted num">per mažai atsakymų</td>
+          {% else %}
+            <td colspan="6"></td>
+          {% endif %}
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h2>Naujausi komentarai</h2>
+<div class="card">
+  {% for comment in comments %}
+    <div class="comment">
+      <div class="meta">
+        <a href="{% url 'feedback:session' comment.response.session_id %}">S{{ comment.response.session.number }}</a>
+        · {{ comment.response.session.date|date:"Y-m-d" }}
+        {% if comment.response.session.module %}· M{{ comment.response.session.module.number }}{% endif %}
+      </div>
+      <p>{{ comment.text }}</p>
+    </div>
+  {% empty %}
+    <p class="muted">Komentarų dar nėra.</p>
+  {% endfor %}
+</div>
+
+<h2>Sesijos</h2>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Nr.</th><th>Data</th><th>Modulis</th><th class="num">Atsakymai</th>
+        <th class="num">Lektorius</th><th class="num">Teorija</th><th class="num">Praktika</th>
+        <th class="num">Per greitas</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in session_rows %}
+        <tr{% if not row.past %} class="muted"{% endif %}>
+          <td><a href="{% url 'feedback:session' row.session.pk %}">S{{ row.session.number }}</a></td>
+          <td>{{ row.session.date|date:"Y-m-d, D" }}</td>
+          <td>{% if row.session.module %}M{{ row.session.module.number }}{% endif %}</td>
+          <td class="num">{{ row.summary.responses }}</td>
+          {% if row.summary.visible %}
+            {% for label, value in row.summary.scale_rows %}<td class="num"><span class="pill {{ value|score_class }}">{{ value|score }}</span></td>{% endfor %}
+            <td class="num">{{ row.summary.pace_rows.2.1|percent }}</td>
+          {% elif row.summary.responses %}
+            <td colspan="4" class="muted num">per mažai atsakymų</td>
+          {% else %}
+            <td colspan="4"></td>
+          {% endif %}
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{{ trend|json_script:"trend-data" }}
+{{ modules_chart|json_script:"modules-data" }}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  if (window.Chart) {
+    const trend = JSON.parse(document.getElementById("trend-data").textContent);
+    const modules = JSON.parse(document.getElementById("modules-data").textContent);
+    new Chart(document.getElementById("trend"), {
+      type: "line",
+      data: { labels: trend.labels, datasets: toDatasets(trend.series) },
+      options: { maintainAspectRatio: false, scales: { y: SCALE } },
+    });
+    new Chart(document.getElementById("modules"), {
+      type: "bar",
+      data: { labels: modules.labels, datasets: toDatasets(modules.series, { borderRadius: 4 }) },
+      options: { maintainAspectRatio: false, scales: { y: SCALE } },
+    });
+    new Chart(document.getElementById("pace"), {
+      type: "bar",
+      data: {
+        labels: modules.labels,
+        datasets: Object.entries(modules.pace).map(([label, data], i) => ({
+          label, data, backgroundColor: ["#e8710a", "#1b9e77", "#c62828"][i],
+        })),
+      },
+      options: {
+        maintainAspectRatio: false,
+        scales: { x: { stacked: true }, y: { stacked: true, max: 100, ticks: { callback: v => v + "%" } } },
+      },
+    });
+  }
+</script>
+{% endblock %}

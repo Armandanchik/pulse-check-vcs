@@ -1,0 +1,37 @@
+{% extends "feedback/base_student.html" %}
+
+{% block content %}
+<header>
+  <p class="eyebrow">{{ group.program.name }} · {{ session.date|date:"E j" }} d. · Sesija {{ session.number }}</p>
+  <h1>Kaip sekėsi šiandienos paskaita?</h1>
+  {% if session.module %}<p class="muted">Modulis {{ session.module }}</p>{% endif %}
+</header>
+
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% for field in form %}
+    <div class="card">
+      {% if field.field.widget.input_type == "radio" %}
+        <fieldset>
+          <legend>{{ field.label }}</legend>
+          <div class="options {% if field.field.choices|length == 5 %}scale{% else %}pace{% endif %}">
+            {% for choice in field %}
+              <label class="opt">{{ choice.tag }}<span>{{ choice.choice_label }}</span></label>
+            {% endfor %}
+          </div>
+          {% if field.field.choices|length == 5 %}
+            <div class="scale-hint"><span>1 – labai blogai</span><span>5 – puikiai</span></div>
+          {% endif %}
+        </fieldset>
+      {% else %}
+        <label class="text-label" for="{{ field.id_for_label }}">{{ field.label }} <span class="muted">(neprivaloma)</span></label>
+        {{ field }}
+        <p class="help">{{ field.help_text }}</p>
+      {% endif %}
+      {% for error in field.errors %}<p class="error">{{ error }}</p>{% endfor %}
+    </div>
+  {% endfor %}
+  <button type="submit">Pateikti</button>
+  <p class="help center">Atsakymai anonimiški. Ačiū, kad padedate tobulinti kursą!</p>
+</form>
+{% endblock %}
