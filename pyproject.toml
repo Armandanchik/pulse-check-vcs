@@ -16,3 +16,7 @@ dependencies = [
 
 [tool.uv]
 package = false
+
+# Vercel: apply database migrations on every deploy (collectstatic runs automatically).
+[tool.vercel.scripts]
+build = "python manage.py migrate --noinput"

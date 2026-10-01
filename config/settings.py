@@ -3,9 +3,11 @@ Django settings for Pulse Check VCS.
 
 Locally everything works with the defaults below (SQLite, DEBUG on).
 On a server, set the environment variables listed in .env.example.
+On Vercel, see DEPLOY.md: the database comes from the Supabase integration.
 """
 
 import os
+import urllib.parse
 from pathlib import Path
 
 import dj_database_url
@@ -13,7 +15,10 @@ from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
+# Vercel sets VERCEL=1 in builds and functions.
+ON_VERCEL = os.environ.get("VERCEL") == "1"
+
+DEBUG = os.environ.get("DJANGO_DEBUG", "0" if ON_VERCEL else "1") == "1"
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "")
 if not SECRET_KEY:
@@ -22,10 +27,17 @@ if not SECRET_KEY:
     SECRET_KEY = "django-insecure-local-development-only"
 
 # Public address of the site, used to build the student links shown in the admin.
-PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "http://localhost:8000").rstrip("/")
+_vercel_production_host = os.environ.get("VERCEL_PROJECT_PRODUCTION_URL", "")
+PUBLIC_BASE_URL = os.environ.get(
+    "PUBLIC_BASE_URL",
+    f"https://{_vercel_production_host}" if _vercel_production_host else "http://localhost:8000",
+).rstrip("/")
 
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS += [host for host in (_vercel_production_host, os.environ.get("VERCEL_URL", "")) if host]
 CSRF_TRUSTED_ORIGINS = [PUBLIC_BASE_URL]
+if os.environ.get("VERCEL_URL"):
+    CSRF_TRUSTED_ORIGINS.append(f"https://{os.environ['VERCEL_URL']}")
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -67,12 +79,26 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-# SQLite locally; on the server DATABASE_URL points at PostgreSQL.
-DATABASES = {
-    'default': dj_database_url.config(
-        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}", conn_max_age=600
-    )
-}
+
+def database_config():
+    """SQLite locally; PostgreSQL from DATABASE_URL (Docker) or POSTGRES_URL (Vercel + Supabase)."""
+    url = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
+    if not url:
+        return dj_database_url.parse(f"sqlite:///{BASE_DIR / 'db.sqlite3'}")
+    # Supabase URLs can carry extra query parameters (e.g. "supa=...") that psycopg rejects.
+    parts = urllib.parse.urlsplit(url)
+    query = [(key, value) for key, value in urllib.parse.parse_qsl(parts.query) if key == "sslmode"]
+    url = urllib.parse.urlunsplit(parts._replace(query=urllib.parse.urlencode(query)))
+    if not ON_VERCEL:
+        return dj_database_url.parse(url, conn_max_age=600)
+    # Serverless functions connect through Supabase's transaction pooler:
+    # no persistent connections and no server-side cursors.
+    config = dj_database_url.parse(url, conn_max_age=0, ssl_require=True)
+    config["DISABLE_SERVER_SIDE_CURSORS"] = True
+    return config
+
+
+DATABASES = {"default": database_config()}
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
